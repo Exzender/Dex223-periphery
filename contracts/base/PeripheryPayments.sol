@@ -43,7 +43,7 @@ abstract contract IERC223 {
 abstract contract PeripheryPayments is IPeripheryPayments, PeripheryImmutableState {
     
     /// @dev User => Token => Balance
-    mapping(address => mapping(address => uint256)) private _erc223Deposits;
+    mapping(address => mapping(address => uint256)) internal _erc223Deposits;
 
     event ERC223Deposit(address indexed token, address indexed depositor, uint256 indexed quantity);
     event ERC223Withdrawal(address indexed token, address caller, address indexed recipient, uint256 indexed quantity);
@@ -60,6 +60,11 @@ abstract contract PeripheryPayments is IPeripheryPayments, PeripheryImmutableSta
         _erc223Deposits[msg.sender][_token] -= _quantity;
         IERC223(_token).transfer(_recipient, _quantity);
         emit ERC223Withdrawal(_token, msg.sender, _recipient, _quantity);
+    }
+
+    function depositedTokens(address _user, address _token) public view returns (uint256)
+    {
+        return _erc223Deposits[_user][_token];
     }
 
     receive() external payable {
@@ -115,8 +120,10 @@ abstract contract PeripheryPayments is IPeripheryPayments, PeripheryImmutableSta
         {
             // Paying in a ERC-223 token.
             _erc223Deposits[payer][token] -= value;
-            TransferHelper.safeApprove(token, address(this), value);
-            TransferHelper.safeTransferFrom(token, address(this), recipient, value);
+            //TransferHelper.safeApprove(token, address(this), value);
+            IERC20(token).approve(address(this), value);
+            //TransferHelper.safeTransferFrom(token, address(this), recipient, value);
+            IERC20(token).transferFrom(address(this), recipient, value);
         }
         else if (payer == address(this)) {
             // pay with tokens already in the contract (for the exact input multihop case)
