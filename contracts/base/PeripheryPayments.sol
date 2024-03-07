@@ -10,7 +10,58 @@ import '../libraries/TransferHelper.sol';
 
 import './PeripheryImmutableState.sol';
 
+abstract contract IERC223 {
+    
+    function name()        public view virtual returns (string memory);
+    function symbol()      public view virtual returns (string memory);
+    function decimals()    public view virtual returns (uint8);
+    function totalSupply() public view virtual returns (uint256);
+    
+    /**
+     * @dev Returns the balance of the `who` address.
+     */
+    function balanceOf(address who) public virtual view returns (uint);
+        
+    /**
+     * @dev Transfers `value` tokens from `msg.sender` to `to` address
+     * and returns `true` on success.
+     */
+    function transfer(address to, uint value) public virtual returns (bool success);
+        
+    /**
+     * @dev Transfers `value` tokens from `msg.sender` to `to` address with `data` parameter
+     * and returns `true` on success.
+     */
+    function transfer(address to, uint value, bytes calldata data) public virtual returns (bool success);
+     
+     /**
+     * @dev Event that is fired on successful transfer.
+     */
+    event Transfer(address indexed from, address indexed to, uint value, bytes data);
+}
+
 abstract contract PeripheryPayments is IPeripheryPayments, PeripheryImmutableState {
+    
+    /// @dev User => Token => Balance
+    mapping(address => mapping(address => uint256)) private _erc223Deposits;
+
+    event ERC223Deposit(address indexed token, address indexed depositor, uint256 indexed quantity);
+    event ERC223Withdrawal(address indexed token, address caller, address indexed recipient, uint256 indexed quantity);
+
+    function depositERC223(address _user, address _token, uint256 _quantity) internal
+    {
+        _erc223Deposits[_user][_token] = _quantity;
+        emit ERC223Deposit(_token, _user, _quantity);
+    }
+
+    function withdraw(address _token, address _recipient, uint256 _quantity) external
+    {
+        require(_erc223Deposits[msg.sender][_token] >= _quantity, "WE");
+        _erc223Deposits[msg.sender][_token] -= _quantity;
+        IERC223(_token).transfer(_recipient, _quantity);
+        emit ERC223Withdrawal(_token, msg.sender, _recipient, _quantity);
+    }
+
     receive() external payable {
         require(msg.sender == WETH9, 'Not WETH9');
     }
@@ -59,7 +110,15 @@ abstract contract PeripheryPayments is IPeripheryPayments, PeripheryImmutableSta
             // pay with WETH9
             IWETH9(WETH9).deposit{value: value}(); // wrap only what is needed to pay
             IWETH9(WETH9).transfer(recipient, value);
-        } else if (payer == address(this)) {
+        } 
+        else if (_erc223Deposits[payer][token] >= value)
+        {
+            // Paying in a ERC-223 token.
+            _erc223Deposits[payer][token] -= value;
+            TransferHelper.safeApprove(token, address(this), value);
+            TransferHelper.safeTransferFrom(token, address(this), recipient, value);
+        }
+        else if (payer == address(this)) {
             // pay with tokens already in the contract (for the exact input multihop case)
             TransferHelper.safeTransfer(token, recipient, value);
         } else {
