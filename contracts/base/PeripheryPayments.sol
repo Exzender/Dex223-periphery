@@ -57,6 +57,7 @@ abstract contract PeripheryPayments is IPeripheryPayments, PeripheryImmutableSta
     function withdraw(address _token, address _recipient, uint256 _quantity) external
     {
         require(_erc223Deposits[msg.sender][_token] >= _quantity, "WE");
+        if (_quantity == 0) _quantity = _erc223Deposits[msg.sender][_token];
         _erc223Deposits[msg.sender][_token] -= _quantity;
         IERC223(_token).transfer(_recipient, _quantity);
         emit ERC223Withdrawal(_token, msg.sender, _recipient, _quantity);
