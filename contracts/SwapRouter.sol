@@ -96,7 +96,6 @@ contract ERC223SwapRouter is
              // Standard ERC-223 swapping via ERC-20 pattern
             (bool success, bytes memory _data_) = address(this).delegatecall(_data);
             require(success, "23F");
-            call_sender = address(0);
 /*
             ERC223SwapStep memory encodedSwaps = abi.decode(_data, (ERC223SwapStep));
 
@@ -106,6 +105,7 @@ contract ERC223SwapRouter is
             }
 */
         }
+        call_sender = address(0);
         return 0x8943ec02;
     }
 
