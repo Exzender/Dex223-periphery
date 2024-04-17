@@ -175,7 +175,7 @@ contract ERC223SwapRouter is
         return uint256(-(zeroForOne ? amount1 : amount0));
     }
 
-    function exactInputSingle(ExactInputSingleParams calldata params) external payable override 
+    function exactInputSingle(ExactInputSingleParams calldata params) external payable override adjustableSender
         returns (uint256 amountOut)
     {
         amountOut = exactInputInternal(
