@@ -16,6 +16,7 @@ interface ISwapRouter is IUniswapV3SwapCallback {
         uint256 amountIn;
         uint256 amountOutMinimum;
         uint160 sqrtPriceLimitX96;
+        bool    prefer223Out;
     }
 
     /// @notice Swaps `amountIn` of one token for as much as possible of another token
@@ -29,6 +30,7 @@ interface ISwapRouter is IUniswapV3SwapCallback {
         uint256 deadline;
         uint256 amountIn;
         uint256 amountOutMinimum;
+        bool    prefer223Out;
     }
 
     /// @notice Swaps `amountIn` of one token for as much as possible of another along the specified path
