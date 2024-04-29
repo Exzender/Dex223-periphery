@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity =0.7.6;
+pragma solidity >=0.7.6;
 pragma abicoder v2;
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
@@ -12,6 +12,20 @@ import '../libraries/LiquidityAmounts.sol';
 
 import './PeripheryPayments.sol';
 import './PeripheryImmutableState.sol';
+
+
+
+contract IDex223Pool
+{
+    struct Token 
+    {
+        address erc20;
+        address erc223;
+    }
+
+    Token public token0;
+    Token public token1;
+}
 
 /// @title Liquidity management functions
 /// @notice Internal functions for safely managing liquidity in Uniswap V3
@@ -30,8 +44,35 @@ abstract contract LiquidityManagement is IUniswapV3MintCallback, PeripheryImmuta
         MintCallbackData memory decoded = abi.decode(data, (MintCallbackData));
         CallbackValidation.verifyCallback(factory, decoded.poolKey);
 
-        if (amount0Owed > 0) pay(decoded.poolKey.token0, decoded.payer, msg.sender, amount0Owed);
-        if (amount1Owed > 0) pay(decoded.poolKey.token1, decoded.payer, msg.sender, amount1Owed);
+        if (amount0Owed > 0) 
+        {
+
+            // Temporary solution for ERC-223 deposits to double-standard pools
+            // replace with decoded struct writing/reading in production.
+            (address _token0erc20, address _token0erc223) = IDex223Pool(msg.sender).token0();
+            delete(_token0erc20);
+            if(_erc223Deposits[decoded.payer][_token0erc223] >= amount0Owed)
+            {
+                pay(_token0erc223, decoded.payer, msg.sender, amount0Owed);
+            }
+            else
+            {
+                pay(decoded.poolKey.token0, decoded.payer, msg.sender, amount0Owed);
+            }
+        }
+        if (amount1Owed > 0) 
+        {
+            (address _token1erc20, address _token1erc223) = IDex223Pool(msg.sender).token1();
+            delete(_token1erc20);
+            if(_erc223Deposits[decoded.payer][_token1erc223] >= amount0Owed)
+            {
+                pay(_token1erc223, decoded.payer, msg.sender, amount0Owed);
+            }
+            else 
+            {
+                pay(decoded.poolKey.token1, decoded.payer, msg.sender, amount1Owed);
+            }
+        }
     }
 
     struct AddLiquidityParams {
@@ -60,7 +101,10 @@ abstract contract LiquidityManagement is IUniswapV3MintCallback, PeripheryImmuta
         PoolAddress.PoolKey memory poolKey =
             PoolAddress.PoolKey({token0: params.token0, token1: params.token1, fee: params.fee});
 
-        pool = IUniswapV3Pool(PoolAddress.computeAddress(factory, poolKey));
+        //pool = IUniswapV3Pool(PoolAddress.computeAddress(factory, poolKey));
+        pool = IUniswapV3Pool( IUniswapV3Factory(factory).getPool(params.token0, params.token1, params.fee) );
+
+        //pool = IUniswapV3Pool(0x5B6e45b2512d5052E39c2E0B3D161c8Ce449A1B5);
 
         // compute the liquidity amount
         {
