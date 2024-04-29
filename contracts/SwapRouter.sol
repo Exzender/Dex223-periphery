@@ -189,7 +189,7 @@ contract ERC223SwapRouter is
         return uint256(-(zeroForOne ? amount1 : amount0));
     }
 
-    function exactInputSingle(ExactInputSingleParams calldata params) 
+    function exactInputSingle(ExactInputSingleParams memory params) 
         external 
         payable 
         override 
@@ -197,14 +197,40 @@ contract ERC223SwapRouter is
         checkDeadline(params.deadline)
         returns (uint256 amountOut)
     {
+        /*
         amountOut = exactInputInternal(
             params.amountIn,
             params.recipient,
             params.sqrtPriceLimitX96,
-            //params.prefer223Out,
+            params.prefer223Out,
             //SwapCallbackData({path: abi.encodePacked(params.tokenIn, params.fee, params.tokenOut), payer: msg.sender})
             SwapCallbackData({path: abi.encodePacked(params.tokenIn, params.fee, params.tokenOut), payer: call_sender})
         );
+        */
+        //address _recipient = params.recipient;
+        if (params.recipient == address(0)) params.recipient = address(this);
+
+        SwapCallbackData memory _data = SwapCallbackData({path: abi.encodePacked(params.tokenIn, params.fee, params.tokenOut), payer: call_sender});
+        (address tokenIn, address tokenOut, uint24 fee) = _data.path.decodeFirstPool();
+
+        bool zeroForOne = tokenIn < tokenOut;
+
+        (int256 amount0, int256 amount1) =
+            getPool(tokenIn, tokenOut, fee).swap(
+                params.recipient,
+                zeroForOne,
+                params.amountIn.toInt256(),
+                params.sqrtPriceLimitX96 == 0
+                    ? (zeroForOne ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
+                    : params.sqrtPriceLimitX96,
+                params.prefer223Out, // Request ERC-20 tokens if 'false'
+                                     // or ERC-223 tokens if 'true'.
+                abi.encode(_data)
+            );
+
+        amountOut = uint256(-(zeroForOne ? amount1 : amount0));
+
+        //return uint256(-(zeroForOne ? amount1 : amount0));
         require(amountOut >= params.amountOutMinimum, 'Too little received');
     }
 
