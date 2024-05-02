@@ -64,9 +64,9 @@ abstract contract LiquidityManagement is IUniswapV3MintCallback, PeripheryImmuta
         {
             (address _token1erc20, address _token1erc223) = IDex223Pool(msg.sender).token1();
             delete(_token1erc20);
-            if(_erc223Deposits[decoded.payer][_token1erc223] >= amount0Owed)
+            if(_erc223Deposits[decoded.payer][_token1erc223] >= amount1Owed)
             {
-                pay(_token1erc223, decoded.payer, msg.sender, amount0Owed);
+                pay(_token1erc223, decoded.payer, msg.sender, amount1Owed);
             }
             else 
             {
